@@ -14,6 +14,11 @@ export class UsersService {
         email,
         password: hashedPassword,
       },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true,
+      },
     });
   }
 
@@ -27,3 +32,4 @@ export class UsersService {
     });
   }
 }
+
