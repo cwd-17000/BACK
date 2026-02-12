@@ -1,23 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { ConfigService } from '@nestjs/config';
+import * as jwksRsa from 'jwks-rsa';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor() {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET'),
+
+      // 🔑 Use Supabase JWKS
+      secretOrKeyProvider: jwksRsa.passportJwtSecret({
+        cache: true,
+        rateLimit: true,
+        jwksRequestsPerMinute: 5,
+        jwksUri:
+          'https://ujquspxnbamzxnkbctfz.supabase.co/auth/v1/.well-known/jwks.json',
+      }),
+
+      // 🔍 Validate token origin
+      issuer: 'https://ujquspxnbamzxnkbctfz.supabase.co/auth/v1',
+      audience: 'authenticated',
     });
   }
 
   async validate(payload: any) {
-    // Whatever you return here becomes req.user
     return {
       userId: payload.sub,
       email: payload.email,
+      role: payload.role,
     };
   }
 }
+
