@@ -1,14 +1,24 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { randomUUID } from 'crypto';
-import { ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+  ) {}
 
+  // -------------------------------
+  // Create organization
+  // -------------------------------
   async createOrganization(userId: string, name: string) {
-    return this.prisma.organization.create({
+    const org = await this.prisma.organization.create({
       data: {
         name,
         memberships: {
@@ -19,8 +29,20 @@ export class OrganizationsService {
         },
       },
     });
+
+    await this.audit.log({
+      organizationId: org.id,
+      actorId: userId,
+      action: 'organization.created',
+      metadata: { name },
+    });
+
+    return org;
   }
 
+  // -------------------------------
+  // List user's organizations
+  // -------------------------------
   async getUserOrganizations(userId: string) {
     return this.prisma.organization.findMany({
       where: {
@@ -31,6 +53,9 @@ export class OrganizationsService {
     });
   }
 
+  // -------------------------------
+  // List organization members
+  // -------------------------------
   async getOrganizationMembers(orgId: string) {
     return this.prisma.membership.findMany({
       where: { organizationId: orgId },
@@ -42,13 +67,16 @@ export class OrganizationsService {
     });
   }
 
-  // ✅ NEW: invite a member
+  // -------------------------------
+  // Invite member
+  // -------------------------------
   async inviteMember(
     orgId: string,
     email: string,
     role: 'admin' | 'member',
+    actorId: string,
   ) {
-    return this.prisma.organizationInvite.create({
+    const invite = await this.prisma.organizationInvite.create({
       data: {
         email,
         organizationId: orgId,
@@ -56,9 +84,20 @@ export class OrganizationsService {
         token: randomUUID(),
       },
     });
+
+    await this.audit.log({
+      organizationId: orgId,
+      actorId,
+      action: 'member.invited',
+      metadata: { email, role },
+    });
+
+    return invite;
   }
 
-  // ✅ NEW: accept invite
+  // -------------------------------
+  // Accept invite
+  // -------------------------------
   async acceptInvite(userId: string, token: string) {
     const invite = await this.prisma.organizationInvite.findUnique({
       where: { token },
@@ -81,9 +120,24 @@ export class OrganizationsService {
       data: { acceptedAt: new Date() },
     });
 
+    await this.audit.log({
+      organizationId: invite.organizationId,
+      actorId: userId,
+      action: 'member.joined',
+      metadata: { via: 'invite' },
+    });
+
     return { success: true };
   }
-    async removeMember(orgId: string, userId: string) {
+
+  // -------------------------------
+  // Remove member
+  // -------------------------------
+  async removeMember(
+    orgId: string,
+    userId: string,
+    actorId: string,
+  ) {
     const membership = await this.prisma.membership.findUnique({
       where: {
         userId_organizationId: {
@@ -93,9 +147,7 @@ export class OrganizationsService {
       },
     });
 
-    if (!membership) {
-      return;
-    }
+    if (!membership) return;
 
     if (membership.role === 'owner') {
       throw new ForbiddenException('Cannot remove organization owner');
@@ -110,13 +162,24 @@ export class OrganizationsService {
       },
     });
 
+    await this.audit.log({
+      organizationId: orgId,
+      actorId,
+      action: 'member.removed',
+      targetId: userId,
+    });
+
     return { success: true };
   }
 
+  // -------------------------------
+  // Update member role
+  // -------------------------------
   async updateMemberRole(
     orgId: string,
     userId: string,
     role: 'admin' | 'member',
+    actorId: string,
   ) {
     const membership = await this.prisma.membership.findUnique({
       where: {
@@ -135,7 +198,7 @@ export class OrganizationsService {
       throw new ForbiddenException('Cannot change owner role');
     }
 
-    return this.prisma.membership.update({
+    const updated = await this.prisma.membership.update({
       where: {
         userId_organizationId: {
           userId,
@@ -143,6 +206,27 @@ export class OrganizationsService {
         },
       },
       data: { role },
+    });
+
+    await this.audit.log({
+      organizationId: orgId,
+      actorId,
+      action: 'member.role_updated',
+      targetId: userId,
+      metadata: { newRole: role },
+    });
+
+    return updated;
+  }
+
+  // -------------------------------
+  // Read audit logs
+  // -------------------------------
+  async getAuditLogs(orgId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
     });
   }
 }

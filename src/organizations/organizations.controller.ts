@@ -49,11 +49,13 @@ export class OrganizationsController {
   inviteMember(
     @Param('id') orgId: string,
     @Body() dto: InviteMemberDto,
+    @Req() req,
   ) {
     return this.organizationsService.inviteMember(
       orgId,
       dto.email,
       dto.role,
+      req.user.userId,
     );
   }
 
@@ -72,8 +74,9 @@ export class OrganizationsController {
   removeMember(
     @Param('id') orgId: string,
     @Param('userId') userId: string,
+    @Req() req,
   ) {
-    return this.organizationsService.removeMember(orgId, userId);
+    return this.organizationsService.removeMember(orgId, userId, req.user.userId);
   }
 
   // ✅ Update member role
@@ -84,11 +87,13 @@ export class OrganizationsController {
     @Param('id') orgId: string,
     @Param('userId') userId: string,
     @Body() dto: UpdateMemberRoleDto,
+    @Req() req,
   ) {
     return this.organizationsService.updateMemberRole(
       orgId,
       userId,
       dto.role,
+      req.user.userId,
     );
   }
 }
