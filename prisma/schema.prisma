@@ -23,11 +23,12 @@ model Organization {
   createdAt DateTime      @default(now())
 
   memberships Membership[]
+  invites     OrganizationInvite[]
 }
 
 model Membership {
   id             String   @id @default(uuid())
-  userId         String
+  userId         String   @db.Uuid
   organizationId String
   role           String   // owner | admin | member
   createdAt      DateTime @default(now())
@@ -55,4 +56,18 @@ model OrgRolePermission {
   permissionRel Permission @relation(fields: [permission], references: [key])
 
   @@unique([role, permission], name: "role_permission")
+}
+
+model OrganizationInvite {
+  id             String   @id @default(uuid())
+  email          String
+  organizationId String
+  role           String   // admin | member
+  token          String   @unique
+  createdAt      DateTime @default(now())
+  acceptedAt     DateTime?
+
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([email, organizationId])
 }

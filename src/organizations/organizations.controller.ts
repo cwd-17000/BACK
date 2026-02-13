@@ -9,9 +9,11 @@ import {
 } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { OrgMembershipGuard } from './org-membership.guard';
+import { OrgMembershipGuard } from './guards/org-membership.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { AcceptInviteDto } from './dto/accept-invite.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -37,5 +39,28 @@ export class OrganizationsController {
   findMembers(@Param('id') orgId: string) {
     return this.organizationsService.getOrganizationMembers(orgId);
   }
-}
 
+  // ✅ NEW: invite a member (permission-gated)
+  @Post(':id/invite')
+  @UseGuards(OrgMembershipGuard, PermissionsGuard)
+  @Permissions('members.invite')
+  inviteMember(
+    @Param('id') orgId: string,
+    @Body() dto: InviteMemberDto,
+  ) {
+    return this.organizationsService.inviteMember(
+      orgId,
+      dto.email,
+      dto.role,
+    );
+  }
+
+  // ✅ NEW: accept an invite
+  @Post('invites/accept')
+  acceptInvite(@Req() req, @Body() dto: AcceptInviteDto) {
+    return this.organizationsService.acceptInvite(
+      req.user.userId,
+      dto.token,
+    );
+  }
+}
