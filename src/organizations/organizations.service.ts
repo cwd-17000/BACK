@@ -229,4 +229,70 @@ export class OrganizationsService {
       take: 100,
     });
   }
+  async transferOwnership(
+  orgId: string,
+  currentOwnerId: string,
+  newOwnerId: string,
+) {
+  // Fetch both memberships
+  const memberships = await this.prisma.membership.findMany({
+    where: {
+      organizationId: orgId,
+      userId: { in: [currentOwnerId, newOwnerId] },
+    },
+  });
+
+  const currentOwner = memberships.find(
+    (m) => m.userId === currentOwnerId,
+  );
+  const newOwner = memberships.find(
+    (m) => m.userId === newOwnerId,
+  );
+
+  // Validations
+  if (!currentOwner || currentOwner.role !== 'owner') {
+    throw new ForbiddenException('Only the owner can transfer ownership');
+  }
+
+  if (!newOwner) {
+    throw new ForbiddenException('New owner must be a member of the organization');
+  }
+
+  if (newOwner.role === 'owner') {
+    throw new BadRequestException('User is already the owner');
+  }
+
+  // Atomic role swap (transaction)
+  await this.prisma.$transaction([
+    this.prisma.membership.update({
+      where: {
+        userId_organizationId: {
+          userId: currentOwnerId,
+          organizationId: orgId,
+        },
+      },
+      data: { role: 'admin' },
+    }),
+    this.prisma.membership.update({
+      where: {
+        userId_organizationId: {
+          userId: newOwnerId,
+          organizationId: orgId,
+        },
+      },
+      data: { role: 'owner' },
+    }),
+  ]);
+
+  // Audit log
+  await this.audit.log({
+    organizationId: orgId,
+    actorId: currentOwnerId,
+    action: 'organization.ownership_transferred',
+    targetId: newOwnerId,
+  });
+
+  return { success: true };
+}
+
 }

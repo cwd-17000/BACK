@@ -16,6 +16,8 @@ import { InviteMemberDto } from './dto/invite-member.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { Delete, Patch } from '@nestjs/common';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { TransferOwnershipDto } from './dto/transfer-ownership.dto';
+import { ForbiddenException } from '@nestjs/common';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -96,4 +98,22 @@ export class OrganizationsController {
       req.user.userId,
     );
   }
+  @Post(':id/transfer-ownership')
+@UseGuards(JwtAuthGuard, OrgMembershipGuard)
+transferOwnership(
+  @Param('id') orgId: string,
+  @Req() req,
+  @Body() dto: TransferOwnershipDto,
+) {
+  // Guard ensures membership exists
+  if (req.membership.role !== 'owner') {
+    throw new ForbiddenException('Only the owner can transfer ownership');
+  }
+
+  return this.organizationsService.transferOwnership(
+    orgId,
+    req.user.userId,
+    dto.newOwnerId,
+  );
+}
 }
