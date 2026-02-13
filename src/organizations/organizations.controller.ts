@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OrgMembershipGuard } from './org-membership.guard';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -18,6 +19,7 @@ export class OrganizationsController {
   }
 
   @Get(':id/members')
+  @UseGuards(OrgMembershipGuard)
   findMembers(@Param('id') orgId: string) {
     return this.organizationsService.getOrganizationMembers(orgId);
   }
