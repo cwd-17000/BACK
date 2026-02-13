@@ -14,6 +14,8 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { InviteMemberDto } from './dto/invite-member.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
+import { Delete, Patch } from '@nestjs/common';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 
 @Controller('organizations')
 @UseGuards(JwtAuthGuard)
@@ -61,6 +63,32 @@ export class OrganizationsController {
     return this.organizationsService.acceptInvite(
       req.user.userId,
       dto.token,
+    );
+  }
+   // ✅ Remove member
+  @Delete(':id/members/:userId')
+  @UseGuards(OrgMembershipGuard, PermissionsGuard)
+  @Permissions('members.remove')
+  removeMember(
+    @Param('id') orgId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.organizationsService.removeMember(orgId, userId);
+  }
+
+  // ✅ Update member role
+  @Patch(':id/members/:userId/role')
+  @UseGuards(OrgMembershipGuard, PermissionsGuard)
+  @Permissions('members.updateRole')
+  updateMemberRole(
+    @Param('id') orgId: string,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateMemberRoleDto,
+  ) {
+    return this.organizationsService.updateMemberRole(
+      orgId,
+      userId,
+      dto.role,
     );
   }
 }
