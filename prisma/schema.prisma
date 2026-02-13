@@ -37,3 +37,22 @@ model Membership {
 
   @@unique([userId, organizationId])
 }
+
+model Permission {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  createdAt DateTime @default(now())
+
+  orgRolePermissions OrgRolePermission[]
+}
+
+model OrgRolePermission {
+  id         String   @id @default(uuid())
+  role       String
+  permission String
+  createdAt  DateTime @default(now())
+
+  permissionRel Permission @relation(fields: [permission], references: [key])
+
+  @@unique([role, permission], name: "role_permission")
+}
