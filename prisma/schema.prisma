@@ -8,9 +8,32 @@ datasource db {
 }
 
 model User {
-  id        String   @id @db.Uuid
-  email     String   @unique
-  role      String   @default("user")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String       @id @db.Uuid
+  email     String       @unique
+  role      String       @default("user") // global role (admin/user)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships Membership[]
+}
+
+model Organization {
+  id        String        @id @default(uuid())
+  name      String
+  createdAt DateTime      @default(now())
+
+  memberships Membership[]
+}
+
+model Membership {
+  id             String   @id @default(uuid())
+  userId         String
+  organizationId String
+  role           String   // owner | admin | member
+  createdAt      DateTime @default(now())
+
+  user           User         @relation(fields: [userId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([userId, organizationId])
 }
