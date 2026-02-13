@@ -1,44 +1,59 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
-  // ✅ Used for registration
-  async create(email: string, password: string) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    return this.prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
+  /**   * 🔑 Sync user from Supabase JWT into Prisma
+   * Called on authenticated requests
+   */
+  async findOrCreateFromSupabase(user: {
+    userId: string;
+    email: string;
+  }) {
+    return this.prisma.user.upsert({
+      where: { id: user.userId },
+      update: {
+        email: user.email,
       },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
+      create: {
+        id: user.userId,
+        email: user.email,
       },
     });
   }
 
-  // ✅ Used internally by AuthService
-  async findByEmail(email: string) {
+  /**   *  Used by RolesGuard
+   */
+  async findById(id: string) {
     return this.prisma.user.findUnique({
-      where: { email },
+      where: { id },
     });
   }
 
-  // ✅ Used for admin/debug views
+  /**
+
+   * �🛠 Admin / debug use
+   */
   findAll() {
     return this.prisma.user.findMany({
       select: {
         id: true,
         email: true,
+        role: true,
         createdAt: true,
       },
     });
   }
-}
 
+  /**
+   * 🛡 Promote / demote users
+   */
+  async updateRole(userId: string, role: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { role },
+    });
+  }
+}
